@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manasa Rajan — Product Leader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0D1B2A;
+    --navy-mid: #1A2D42;
+    --off-white: #F5F0E8;
+    --warm-white: #FAF7F2;
+    --teal: #1D9E75;
+    --teal-light: #E1F5EE;
+    --slate: #8A9BB0;
+    --slate-dark: #5A6E82;
+    --text-body: #2C3E50;
+    --text-muted: #6B7C8D;
+    --border: rgba(13,27,42,0.1);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--warm-white);
+    color: var(--text-body);
+    line-height: 1.7;
+    font-size: 16px;
+    overflow-x: hidden;
+  }
+
+  /* ── Progress bar ── */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 2px;
+    width: 0%;
+    background: var(--teal);
+    z-index: 1000;
+    transition: width 0.1s linear;
+  }
+
+  /* ── Sticky header ── */
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 0 2.5rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(245,240,232,0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s;
+  }
+  header.scrolled { border-color: var(--border); }
+
+  .header-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--navy);
+    letter-spacing: 0.01em;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  header.scrolled .header-name { opacity: 1; }
+
+  nav {
+    display: flex;
+    gap: 2rem;
+  }
+  nav a {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--slate-dark);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--teal); }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--slate);
+    margin-bottom: 2.5rem;
+    display: block;
+  }
+
+  /* ── Layout ── */
+  section {
+    padding: 7rem 2.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ── Hero ── */
+  #hero {
+    min-height: 100vh;
+    padding-top: 8rem;
+    padding-bottom: 5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .hero-eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 2rem;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 4rem;
+    align-items: end;
+  }
+
+  .hero-name {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(64px, 9vw, 108px);
+    font-weight: 900;
+    color: var(--navy);
+    line-height: 0.92;
+    letter-spacing: -0.02em;
+    margin-bottom: 2rem;
+  }
+
+  .hero-tagline {
+    font-size: 17px;
+    font-weight: 300;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 420px;
+    margin-bottom: 2.5rem;
+  }
+
+  .hero-links {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .hero-links a {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--navy);
+    text-decoration: none;
+    border-bottom: 1.5px solid var(--teal);
+    padding-bottom: 2px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .hero-links a:hover { color: var(--teal); }
+
+  .hero-photo-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1.5rem;
+  }
+
+  .hero-photo {
+    width: 220px;
+    height: 280px;
+    background: linear-gradient(145deg, #C8D8E4 0%, #9BB5C7 100%);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .hero-photo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 56px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: -0.02em;
+  }
+
+  .hero-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .hero-location {
+    font-size: 12px;
+    color: var(--slate);
+    letter-spacing: 0.05em;
+    text-align: right;
+  }
+
+  /* ── Divider ── */
+  .section-divider {
+    width: 40px;
+    height: 1.5px;
+    background: var(--teal);
+    margin: 0 auto 0 0;
+  }
+
+  /* ── About ── */
+  #about {}
+
+  .about-text p {
+    font-size: 17px;
+    line-height: 1.8;
+    color: var(--text-body);
+    margin-bottom: 1.5rem;
+    font-weight: 300;
+  }
+
+  .role-block {
+    margin-top: 3.5rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    border-top: 1px solid var(--border);
+    padding-top: 2.5rem;
+  }
+
+  .role-item {}
+
+  .role-item-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--slate);
+    margin-bottom: 0.6rem;
+  }
+
+  .role-item-value {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--navy);
+    line-height: 1.4;
+  }
+
+  .role-item-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+  }
+
+  /* ── Shipped ── */
+  #shipped {}
+
+  .shipped-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .shipped-item {
+    padding: 1.6rem 0;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+    opacity: 1;
+    transition: background 0.2s;
+    cursor: default;
+  }
+  .shipped-item:first-child { border-top: 1px solid var(--border); }
+
+  .shipped-item:hover .shipped-title { color: var(--teal); }
+
+  .shipped-meta {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--slate);
+  }
+
+  .shipped-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--navy);
+    line-height: 1.45;
+    transition: color 0.2s;
+  }
+
+  .shipped-desc {
+    font-size: 14.5px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  .metric {
+    color: var(--teal);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Thinking ── */
+  #thinking {}
+
+  .conviction-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+    margin-top: 0.5rem;
+  }
+
+  .conviction-card {
+    padding: 2rem 2rem 2rem 0;
+    border-left: 0px solid transparent;
+    position: relative;
+  }
+
+  .conviction-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 2rem; bottom: 2rem;
+    width: 1.5px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .conviction-card:hover::before { background: var(--teal); }
+
+  .conviction-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    color: var(--slate);
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  .conviction-text {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--navy);
+    line-height: 1.55;
+  }
+
+  .conviction-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 0.6rem;
+    line-height: 1.5;
+    font-weight: 300;
+  }
+
+  /* ── Outside ── */
+  #outside {}
+
+  .outside-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem 3rem;
+  }
+
+  .outside-item {
+    font-size: 15.5px;
+    color: var(--text-body);
+    font-weight: 300;
+    line-height: 1.5;
+    padding-left: 1rem;
+    position: relative;
+  }
+
+  .outside-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.7em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--teal);
+  }
+
+  /* ── Footer ── */
+  footer {
+    background: var(--navy);
+    color: var(--off-white);
+    padding: 4rem 2.5rem;
+    text-align: center;
+  }
+
+  .footer-inner {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .footer-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 1.25rem;
+  }
+
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin-bottom: 2.5rem;
+  }
+
+  .footer-links a {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--slate);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--teal); }
+
+  .footer-copy {
+    font-size: 12px;
+    color: var(--slate-dark);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Fade-in on scroll ── */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 680px) {
+    section { padding: 5rem 1.5rem; }
+    header { padding: 0 1.5rem; }
+    nav { display: none; }
+
+    .hero-grid {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+    .hero-photo-col { align-items: flex-start; flex-direction: row; align-items: center; }
+    .hero-photo { width: 100px; height: 130px; }
+    .hero-location { text-align: left; }
+    .hero-name { font-size: clamp(52px, 13vw, 80px); }
+
+    .role-block { grid-template-columns: 1fr; gap: 1.5rem; }
+    .conviction-grid { grid-template-columns: 1fr; }
+    .outside-list { grid-template-columns: 1fr; }
+    footer { padding: 3rem 1.5rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fade-in { opacity: 1; transform: none; transition: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar" role="progressbar" aria-label="Page scroll progress"></div>
+
+<header id="site-header">
+  <span class="header-name">Manasa Rajan</span>
+  <nav aria-label="Page sections">
+    <a href="#about">About</a>
+    <a href="#shipped">Work</a>
+    <a href="#thinking">Thinking</a>
+    <a href="#outside">Outside</a>
+  </nav>
+</header>
+
+<!-- ────────────────────────────── HERO ────────────────────────────── -->
+<section id="hero" aria-label="Introduction">
+  <p class="hero-eyebrow">Product Leader · Atlanta, GA</p>
+  <div class="hero-grid">
+    <div class="hero-left">
+      <h1 class="hero-name">Manasa<br>Rajan</h1>
+      <p class="hero-tagline">
+        I build products that make complex systems feel simple — from AI agents that run global marketing to platforms trusted by millions of businesses.
+      </p>
+      <div class="hero-links">
+        <a href="mailto:manasa@email.com">Email</a>
+        <a href="https://linkedin.com/in/manasarajan" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="#shipped">See my work ↓</a>
+      </div>
+    </div>
+    <div class="hero-photo-col">
+      <div class="hero-photo" role="img" aria-label="Photo of Manasa Rajan">
+        <div class="hero-photo-placeholder">MR</div>
+        <!-- Replace with: <img src="photo.jpg" alt="Manasa Rajan" /> -->
+      </div>
+      <p class="hero-location">13+ years · AI · MarTech · Enterprise</p>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────── ABOUT ────────────────────────────── -->
+<section id="about" aria-labelledby="about-label">
+  <span class="section-label" id="about-label">About</span>
+
+  <div class="about-text fade-in">
+    <p>
+      I'm a senior product manager at Mastercard, where I lead AI-powered platforms that help businesses find, reach, and convert customers at scale. My work sits at the intersection of machine learning, marketing technology, and enterprise infrastructure — the kind of problems that are hard precisely because they touch everything at once.
+    </p>
+    <p>
+      I've spent 13 years believing that the best products don't just solve problems — they change how people think about what's possible. That conviction has taken me from building agentic marketing systems that orchestrate multi-channel campaigns autonomously, to launching retrieval-augmented knowledge tools for enterprise teams, to now prototyping a mobile-first SaaS product for small trade businesses in Atlanta.
+    </p>
+  </div>
+
+  <div class="role-block fade-in">
+    <div class="role-item">
+      <p class="role-item-label">Day job</p>
+      <p class="role-item-value">Lead PM, Mastercard</p>
+      <p class="role-item-sub">AI & Marketing Platforms</p>
+    </div>
+    <div class="role-item">
+      <p class="role-item-label">Side project</p>
+      <p class="role-item-value">TerraFlow</p>
+      <p class="role-item-sub">Founder — vertical SaaS for landscaping</p>
+    </div>
+    <div class="role-item">
+      <p class="role-item-label">Roots</p>
+      <p class="role-item-value">Atlanta, GA</p>
+      <p class="role-item-sub">B2B enterprise · AI/ML · MarTech</p>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────── SHIPPED ────────────────────────────── -->
+<section id="shipped" aria-labelledby="shipped-label">
+  <span class="section-label" id="shipped-label">Things I've shipped</span>
+
+  <ul class="shipped-list">
+
+    <li class="shipped-item fade-in">
+      <span class="shipped-meta">Mastercard · AI Platform</span>
+      <p class="shipped-title">Agentic Marketing System</p>
+      <p class="shipped-desc">
+        Led a multi-year program to build an AI-driven system that autonomously orchestrates cross-channel marketing campaigns. Integrated retrieval-augmented generation, human-in-the-loop evaluation pipelines, and real-time decisioning — reducing campaign setup time by <span class="metric">~60%</span> and expanding active pipeline value by <span class="metric">400%</span>.
+      </p>
+    </li>
+
+    <li class="shipped-item fade-in">
+      <span class="shipped-meta">Mastercard · Knowledge Infrastructure</span>
+      <p class="shipped-title">Knowledge-Retrieval Agent (RAG)</p>
+      <p class="shipped-desc">
+        Defined and shipped a RAG-based internal knowledge agent serving enterprise teams. Designed the HITL evaluation framework, embedding strategy, and fallback logic. Measurably reduced research time for go-to-market teams and improved answer accuracy to <span class="metric">83%</span> on internal evals.
+      </p>
+    </li>
+
+    <li class="shipped-item fade-in">
+      <span class="shipped-meta">Mastercard · Growth Platform</span>
+      <p class="shipped-title">Lead Generation Platform — Forms-as-a-Service</p>
+      <p class="shipped-desc">
+        Built scalable forms infrastructure serving multiple business units as a shared service. Standardized data capture across lead-gen surfaces, enabling faster campaign launches and consistent downstream CRM integration without per-team engineering overhead.
+      </p>
+    </li>
+
+    <li class="shipped-item fade-in">
+      <span class="shipped-meta">Mastercard · Localization</span>
+      <p class="shipped-title">Multilingual Publishing & Translation Workflow</p>
+      <p class="shipped-desc">
+        Owned the end-to-end localization initiative for a major marketing platform, including translation pipeline architecture, content ops tooling, and quality review workflows. Expanded platform reach across <span class="metric">16+</span> languages while cutting localization cycle time significantly.
+      </p>
+    </li>
+
+    <li class="shipped-item fade-in">
+      <span class="shipped-meta">Solo Founder · 2024–present</span>
+      <p class="shipped-title">TerraFlow — Mobile quoting & payments for landscapers</p>
+      <p class="shipped-desc">
+        Building a PWA product for small landscaping businesses (owner-operators doing $500K–$2M revenue) in the Atlanta metro market. Designed the full product stack — Next.js, Supabase, Stripe Connect, Wisetack embedded financing — and shipped a working mobile demo solo, no-code constraint, under $5K.
+      </p>
+    </li>
+
+  </ul>
+</section>
+
+<!-- ────────────────────────────── THINKING ────────────────────────────── -->
+<section id="thinking" aria-labelledby="thinking-label">
+  <span class="section-label" id="thinking-label">What I'm thinking about</span>
+
+  <div class="conviction-grid">
+
+    <div class="conviction-card fade-in">
+      <span class="conviction-number">—</span>
+      <p class="conviction-text">Agentic AI is a distribution problem, not a model problem.</p>
+      <p class="conviction-sub">The hardest part isn't the intelligence — it's trust, control surfaces, and the humans who have to stay in the loop without slowing everything down.</p>
+    </div>
+
+    <div class="conviction-card fade-in">
+      <span class="conviction-number">—</span>
+      <p class="conviction-text">Vertical SaaS for trade industries is still massively underserved.</p>
+      <p class="conviction-sub">Landscapers, HVAC techs, and pest control operators run real businesses on spreadsheets and gut feel. The right product isn't a simplified Salesforce — it's something native to how they actually work.</p>
+    </div>
+
+    <div class="conviction-card fade-in">
+      <span class="conviction-number">—</span>
+      <p class="conviction-text">The best PMs think in systems, not features.</p>
+      <p class="conviction-sub">A feature is a guess. A system is a theory about how the world works. I'd rather be wrong about a system than right about a feature — because systems teach you something when they fail.</p>
+    </div>
+
+    <div class="conviction-card fade-in">
+      <span class="conviction-number">—</span>
+      <p class="conviction-text">Localization is a product strategy, not a localization problem.</p>
+      <p class="conviction-sub">Deciding which markets to serve, in which languages, at what quality level — that's a product decision with compounding returns. Most teams treat it as a translation ticket.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ────────────────────────────── OUTSIDE ────────────────────────────── -->
+<section id="outside" aria-labelledby="outside-label">
+  <span class="section-label" id="outside-label">Outside of work</span>
+
+  <div class="fade-in">
+    <ul class="outside-list">
+      <li class="outside-item">Building TerraFlow from scratch — product, design, and GTM, solo</li>
+      <li class="outside-item">Exploring what AI-native product management actually looks like in practice</li>
+      <li class="outside-item">Based in Atlanta — always up for a recommendation on where to eat</li>
+      <li class="outside-item">Figuring out how to be a non-technical founder without pretending otherwise</li>
+      <li class="outside-item">Occasional over-thinker about pricing models and distribution strategies</li>
+      <li class="outside-item">Add your personal details here — hobbies, travel, family, what lights you up</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ────────────────────────────── FOOTER ────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <p class="footer-name">Manasa Rajan</p>
+    <div class="footer-links">
+      <a href="mailto:manasa@email.com">manasa@email.com</a>
+      <a href="https://linkedin.com/in/manasarajan" target="_blank" rel="noopener">LinkedIn</a>
+    </div>
+    <p class="footer-copy">Atlanta, GA · Open to the right opportunities</p>
+  </div>
+</footer>
+
+<script>
+  // Progress bar
+  const bar = document.getElementById('progress-bar');
+  const header = document.getElementById('site-header');
+
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    bar.style.width = pct + '%';
+
+    if (scrollTop > 80) {
+      header.classList.add('scrolled');
+    } else {
+      header.classList.remove('scrolled');
+    }
+  }, { passive: true });
+
+  // Scroll fade-ins
+  const fadeEls = document.querySelectorAll('.fade-in');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  fadeEls.forEach(el => observer.observe(el));
+
+  // Stagger shipped items
+  document.querySelectorAll('.shipped-item').forEach((el, i) => {
+    el.style.transitionDelay = (i * 0.06) + 's';
+  });
+
+  // Stagger conviction cards
+  document.querySelectorAll('.conviction-card').forEach((el, i) => {
+    el.style.transitionDelay = (i * 0.08) + 's';
+  });
+</script>
+</body>
+</html>
