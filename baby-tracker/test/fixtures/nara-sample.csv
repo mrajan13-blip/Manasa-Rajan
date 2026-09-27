@@ -1,0 +1,15 @@
+﻿Type,Start Date/time,Start Date/time (Epoch),Time Zone,Created By Caregiver,Last Updated By Caregiver,Note,_activityKey,[Breastfeed] Begin Side,[Breastfeed] End Side,[Breastfeed] Left Duration (Seconds),[Breastfeed] Right Duration (Seconds),[Bottle Feed] Type,[Bottle Feed] Formula Name,[Bottle Feed] Volume,[Bottle Feed] Volume Unit,[Bottle Feed] Breast Milk Volume,[Bottle Feed] Breast Milk Volume Unit,[Bottle Feed] Formula Volume,[Bottle Feed] Formula Volume Unit,[Combo Feed] Begin Side,[Combo Feed] End Side,[Combo Feed] Left Duration (Seconds),[Combo Feed] Right Duration (Seconds),[Combo Feed] Type,[Combo Feed] Volume,[Combo Feed] Volume Unit,[Diaper] Type,[Diaper] Detail,[Diaper] Dirty Color,[Diaper] Dirty Texture,[Pump] Left Volume,[Pump] Left Volume Unit,[Pump] Right Volume,[Pump] Right Volume Unit,[Growth] Weight,[Growth] Weight Unit,[Growth] Height,[Growth] Height Unit,[Growth] Head Size,[Growth] Head Size Unit,[Sleep] Duration (Seconds)
+Breastfeed,,1757700000000,,Mom,,,a1,Left,Right.nonTimer,600,420,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Bottle Feed,,1757703600000,,Dad,,"Fussy, then ""happy""
+slept after",a2,,,,,Formula,Enfamil,90,ML,,,,,,,,,,,,,,,,,,,,,,,,,,
+Bottle Feed,,1757707200000,,Mom,,,a3,,,,,Breast Milk Formula,,,,30,ML,60,ML,,,,,,,,,,,,,,,,,,,,,,
+Combo Feed,,1757709000000,,Mom,,,a4,,,,,,,,,,,,,Right,,,300,Breast Milk,2,OZ,,,,,,,,,,,,,,,
+Diaper,,1757710800000,,Dad,,,a5,,,,,,,,,,,,,,,,,,,,Dirty Wet,Blowout,BROWN YELLOW,MUSH RUN,,,,,,,,,,,
+Diaper,,1757711800000,,Dad,,,a6,,,,,,,,,,,,,,,,,,,,Wet,,,,,,,,,,,,,,
+Diaper,,1757712800000,,,,,a7,,,,,,,,,,,,,,,,,,,,Dry,,,,,,,,,,,,,,
+Pump,,1757713000000,,,,,a8,,,,,,,,,,,,,,,,,,,,,,,,70,ML,,,,,,,,,
+Growth,,1757714000000,,,,,a9,,,,,,,,,,,,,,,,,,,,,,,,,,,,12.5,LB,24,IN,40.5,CM,
+Sleep,,1757715000000,,Mom,,,a10,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,5400
+Diaper,,1757716000000,,,,,a11,,,,,,,,,,,,,,,,,,,,Sparkly,,,,,,,,,,,,,,
+Milestone,,1757717000000,,,,First smile,a12,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Profile,,1757000000000,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

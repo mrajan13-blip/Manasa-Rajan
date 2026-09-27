@@ -6,12 +6,14 @@ import {
   hashPassword, verifyPassword, newToken, hashToken, newInviteCode, parseCookies, createRateLimiter,
 } from './auth.js';
 import { HttpError, bad, text, isoDate, isoTime, validateEvent } from './validate.js';
+import { parseCsv, mapNaraRows } from './nara.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const SESSION_COOKIE = 'bt_session';
 const SESSION_DAYS = 90;
 const INVITE_DAYS = 7;
 const MAX_BODY = 64 * 1024;
+const MAX_IMPORT_BODY = 40 * 1024 * 1024; // years of Nara history is a few MB of CSV
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -64,7 +66,59 @@ export function createApp({ db, secureCookies = false, trustProxy = false }) {
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
     updateEvent: db.prepare('UPDATE events SET type = ?, start_at = ?, end_at = ?, data = ?, updated_at = ? WHERE id = ?'),
     deleteEvent: db.prepare('DELETE FROM events WHERE id = ?'),
+    importEvent: db.prepare(`INSERT OR IGNORE INTO events
+                             (child_id, type, start_at, end_at, data, created_by, created_at, updated_at, source_key)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+    sourceKeys: db.prepare('SELECT source_key FROM events WHERE child_id = ? AND source_key IS NOT NULL'),
   };
+
+  // Validates a Nara export against this app's rules. Nothing is written unless commit is true;
+  // entries already imported (same Nara activity key) are skipped, so re-running is safe.
+  function importNara(user, child, csv, commit) {
+    if (typeof csv !== 'string' || !csv.trim()) throw bad('Choose the CSV file exported from Nara');
+    const rows = parseCsv(csv);
+    if (!rows.length || !('Type' in rows[0]) || !('Start Date/time (Epoch)' in rows[0])) {
+      throw bad("This doesn't look like a Nara Baby export (expected Type and Start Date/time (Epoch) columns)");
+    }
+    const { events, skipped, problems } = mapNaraRows(rows);
+    const members = new Map(q.members.all(user.family_id).map((m) => [m.name.trim().toLowerCase(), m.id]));
+    const existing = new Set(q.sourceKeys.all(child.id).map((r) => r.source_key));
+    const counts = { sleep: 0, feed: 0, diaper: 0, growth: 0 };
+    const valid = [];
+    let duplicates = 0;
+    let first = null;
+    let last = null;
+    for (const e of events) {
+      let ev;
+      try {
+        ev = validateEvent(e);
+      } catch (err) {
+        problems.push({ line: null, type: e.type, reason: `${e.startAt}: ${err.message}` });
+        continue;
+      }
+      if (existing.has(e.sourceKey)) { duplicates++; continue; }
+      existing.add(e.sourceKey);
+      counts[ev.type]++;
+      if (!first || ev.startAt < first) first = ev.startAt;
+      if (!last || ev.startAt > last) last = ev.startAt;
+      // Credit the caregiver named in Nara when they're in this family, else the importer.
+      const by = members.get(String(e.caregiver || '').trim().toLowerCase()) ?? user.id;
+      valid.push([ev, by, e.sourceKey]);
+    }
+    let imported = 0;
+    if (commit && valid.length) {
+      const t = now();
+      transaction(db, () => {
+        for (const [ev, by, key] of valid) {
+          imported += Number(q.importEvent.run(child.id, ev.type, ev.startAt, ev.endAt, JSON.stringify(ev.data), by, t, t, key).changes);
+        }
+      });
+    }
+    return {
+      committed: !!commit, imported, toImport: valid.length, counts, duplicates, skipped,
+      problems: problems.slice(0, 50), problemCount: problems.length, first, last,
+    };
+  }
 
   const eventOut = (e) => ({
     id: e.id,
@@ -236,6 +290,11 @@ export function createApp({ db, secureCookies = false, trustProxy = false }) {
       return [201, eventOut({ ...q.event.get(id, user.family_id), created_by_name: user.name })];
     }],
 
+    ['POST', /^\/api\/children\/(\d+)\/import\/nara$/, { maxBody: MAX_IMPORT_BODY }, ({ user, params, body }) => {
+      const child = requireChild(user, params[0]);
+      return [200, importNara(user, child, body.csv, body.commit === true)];
+    }],
+
     ['PATCH', /^\/api\/events\/(\d+)$/, {}, ({ user, params, body }) => {
       const existing = q.event.get(Number(params[0]), user.family_id);
       if (!existing) throw new HttpError(404, 'Entry not found');
@@ -261,7 +320,7 @@ export function createApp({ db, secureCookies = false, trustProxy = false }) {
     }],
   ];
 
-  async function readJson(req) {
+  async function readJson(req, maxBody = MAX_BODY) {
     if (req.method === 'GET' || req.method === 'HEAD') return {};
     // Requiring a JSON content type blocks cross-site form posts (CSRF) because
     // browsers must preflight it, and we never answer preflights.
@@ -272,7 +331,7 @@ export function createApp({ db, secureCookies = false, trustProxy = false }) {
     const chunks = [];
     for await (const chunk of req) {
       size += chunk.length;
-      if (size > MAX_BODY) throw new HttpError(413, 'Request too large');
+      if (size > maxBody) throw new HttpError(413, 'Request too large');
       chunks.push(chunk);
     }
     if (!size) return {};
@@ -329,7 +388,7 @@ export function createApp({ db, secureCookies = false, trustProxy = false }) {
         }
         const user = opts.auth === false ? null : currentUser(req);
         if (opts.auth !== false && !user) throw new HttpError(401, 'Please sign in');
-        const body = await readJson(req);
+        const body = await readJson(req, opts.maxBody);
         const [status, payload] = await handler({ req, res, url, body, user, params: match.slice(1) });
         send(res, status, payload);
         return;

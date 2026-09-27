@@ -61,10 +61,19 @@ CREATE INDEX IF NOT EXISTS events_child_start ON events (child_id, start_at DESC
 CREATE INDEX IF NOT EXISTS events_child_updated ON events (child_id, updated_at);
 `;
 
+// Additive migrations for databases created by earlier versions.
+function migrate(db) {
+  const cols = db.prepare('PRAGMA table_info(events)').all().map((c) => c.name);
+  // Where an imported entry came from (e.g. "nara:<activity key>"), so re-imports skip it.
+  if (!cols.includes('source_key')) db.exec('ALTER TABLE events ADD COLUMN source_key TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS events_child_source ON events (child_id, source_key) WHERE source_key IS NOT NULL');
+}
+
 export function openDb(path) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  migrate(db);
   return db;
 }
 

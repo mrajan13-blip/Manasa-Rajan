@@ -174,3 +174,34 @@ test('serves the app and blocks path traversal', async () => {
   assert.equal((await fetch(`${base}/..%2Fpackage.json`)).status, 404);
   assert.equal((await fetch(`${base}/%2e%2e/lib/app.js`)).status, 404);
 });
+
+test('imports a Nara export: preview, commit, and re-import skips duplicates', async () => {
+  const { readFileSync } = await import('node:fs');
+  const csv = readFileSync(new URL('./fixtures/nara-sample.csv', import.meta.url), 'utf8');
+  const mom = client();
+  await mom('POST', '/api/signup', { name: 'Mom', email: email(), password: 'password123' });
+  const kid = (await mom('POST', '/api/children', { name: 'Kid', birthDate: '2025-06-01', sex: 'female' })).body;
+  const url = `/api/children/${kid.id}/import/nara`;
+
+  let r = await mom('POST', url, { csv });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.committed, false);
+  assert.deepEqual(r.body.counts, { sleep: 1, feed: 5, diaper: 3, growth: 1 });
+  assert.equal(r.body.problemCount, 1);
+  assert.equal((await mom('GET', `/api/children/${kid.id}/events`)).body.events.length, 0, 'preview writes nothing');
+
+  r = await mom('POST', url, { csv, commit: true });
+  assert.equal(r.body.imported, 10);
+  const events = (await mom('GET', `/api/children/${kid.id}/events`)).body.events;
+  assert.equal(events.length, 10);
+  assert.ok(events.every((e) => e.createdBy === 'Mom'), 'caregiver matched by name, else the importer');
+
+  r = await mom('POST', url, { csv, commit: true });
+  assert.equal(r.body.imported, 0);
+  assert.equal(r.body.duplicates, 10);
+
+  assert.equal((await mom('POST', url, { csv: 'a,b\n1,2' })).status, 400);
+  const other = client();
+  await other('POST', '/api/signup', { name: 'O', email: email(), password: 'password123' });
+  assert.equal((await other('POST', url, { csv })).status, 404);
+});

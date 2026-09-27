@@ -171,7 +171,8 @@ function describe(e) {
   if (e.type === 'feed') {
     if (d.method === 'bottle') {
       const what = { breast_milk: 'breast milk', formula: 'formula', mixed: 'breast milk + formula' }[d.contents];
-      return { title: `Bottle · ${fmtVolume(d.amountMl)}`, meta: what };
+      const split = d.breastMilkMl != null && d.formulaMl != null ? ` (${fmtVolume(d.breastMilkMl)} + ${fmtVolume(d.formulaMl)})` : '';
+      return { title: `Bottle · ${fmtVolume(d.amountMl)}`, meta: [what + split, d.formulaName].filter(Boolean).join(' · ') };
     }
     const parts = [];
     if (d.leftSeconds) parts.push(`L ${fmtDuration(d.leftSeconds * 1000)}`);
@@ -183,7 +184,8 @@ function describe(e) {
     };
   }
   if (e.type === 'diaper') {
-    return { title: { wet: 'Wet diaper', dirty: 'Dirty diaper', both: 'Wet + dirty diaper' }[d.kind], meta: '' };
+    const extra = [d.color, d.texture, d.blowout && 'blowout', d.rash && 'rash'].filter(Boolean).join(' · ');
+    return { title: { wet: 'Wet diaper', dirty: 'Dirty diaper', both: 'Wet + dirty diaper', dry: 'Dry diaper' }[d.kind], meta: extra };
   }
   const parts = [];
   if (d.weightKg) parts.push(fmtWeight(d.weightKg));
@@ -252,8 +254,8 @@ function viewToday() {
   const feeds = today.filter((e) => e.type === 'feed');
   const bottleMl = feeds.reduce((sum, e) => sum + (e.data.amountMl || 0), 0);
   const diapers = today.filter((e) => e.type === 'diaper');
-  const wet = diapers.filter((e) => e.data.kind !== 'dirty').length;
-  const dirty = diapers.filter((e) => e.data.kind !== 'wet').length;
+  const wet = diapers.filter((e) => e.data.kind === 'wet' || e.data.kind === 'both').length;
+  const dirty = diapers.filter((e) => e.data.kind === 'dirty' || e.data.kind === 'both').length;
   const feedTimer = store.get(feedTimerKey());
 
   const since = (e, fallback = '—') => (e ? `<span data-since="${e.endAt || e.startAt}"></span> ago` : fallback);
@@ -305,6 +307,7 @@ function viewLog() {
     <section class="section card day-nav">
       <button class="icon-btn" data-day="-1" aria-label="Previous day">${ICONS.left}</button>
       <div style="text-align:center"><h2>${isToday ? 'Today' : fmtDay(day)}</h2>
+        <input type="date" id="log-date" aria-label="Jump to date" value="${toLocalDate(day.toISOString())}" max="${toLocalDate()}" />
         <div class="muted small">${counts[0]} sleeps · ${counts[1]} feeds · ${counts[2]} diapers</div></div>
       <button class="icon-btn" data-day="1" aria-label="Next day" ${isToday ? 'disabled' : ''}>${ICONS.right}</button>
     </section>
@@ -370,6 +373,11 @@ function viewFamily() {
       <ul class="list-plain">${children.map((k) => `
         <li><div><strong>${esc(k.name)}</strong><div class="muted small">Born ${fmtDate(`${k.birthDate}T00:00`)} · ${k.sex === 'female' ? 'Girl' : 'Boy'}</div></div>
         <button class="btn ghost" data-edit-child="${k.id}">Edit</button></li>`).join('')}</ul>
+    </section>
+    <section class="section card">
+      <h2>Import from Nara Baby</h2>
+      <p class="muted small">Bring over your history: sleep, feeds, diapers and growth. In Nara, tap your child's avatar on the Activity screen, then <strong>Export Data</strong>, and upload that CSV here. Anything already imported is skipped, so it's safe to run again.</p>
+      <button class="btn" data-action="import-nara">Import Nara CSV</button>
     </section>
     <section class="section card">
       <div class="section-head"><h2>Caregivers</h2><button class="btn primary" data-action="invite">Invite partner</button></div>
@@ -611,7 +619,7 @@ function feedModal(e) {
     }
     if (e) {
       // Switching methods: drop the other method's fields rather than merging them.
-      payload.data = { leftSeconds: null, rightSeconds: null, lastSide: null, amountMl: null, contents: null, ...payload.data };
+      payload.data = { leftSeconds: null, rightSeconds: null, lastSide: null, amountMl: null, contents: null, breastMilkMl: null, formulaMl: null, ...payload.data };
     }
     await saveEvent(e, payload);
     store.set('bt_last_feed_method', m);
@@ -625,12 +633,12 @@ function diaperModal(e) {
   openModal(e ? 'Edit diaper' : 'Diaper change', `
     <input type="hidden" name="kind" value="${kind}" />
     <div class="choice" role="group" aria-label="Diaper type">
-      ${[['wet', 'Wet'], ['dirty', 'Dirty'], ['both', 'Both']].map(([v, l]) => `<button type="button" data-pick="kind:${v}" aria-pressed="${kind === v}">${l}</button>`).join('')}
+      ${[['wet', 'Wet'], ['dirty', 'Dirty'], ['both', 'Both'], ['dry', 'Dry']].map(([v, l]) => `<button type="button" data-pick="kind:${v}" aria-pressed="${kind === v}">${l}</button>`).join('')}
     </div>
     <div class="field"><label for="m-start">Time</label><input id="m-start" name="start" type="datetime-local" value="${toLocalInput(e?.startAt)}" required /></div>
     ${noteField(e)}`,
   (fd) => {
-    if (!fd.get('kind')) throw new Error('Choose wet, dirty or both');
+    if (!fd.get('kind')) throw new Error('Choose wet, dirty, both or dry');
     return saveEvent(e, { type: 'diaper', startAt: fromLocalInput(fd.get('start')), data: { kind: fd.get('kind'), note: fd.get('note') } });
   },
   { onDelete: e && deleteEvent(e) });
@@ -709,6 +717,69 @@ function inviteModal(invite) {
   if (share) share.onclick = () => navigator.share({ title: 'Join me on Baby Tracker', text: `Use invite code ${invite.code}`, url: link }).catch(() => {});
 }
 
+function naraModal() {
+  const kids = state.me.children;
+  modalForm.innerHTML = `
+    <div class="modal-head"><h2>Import from Nara Baby</h2><button type="button" class="icon-btn" data-close aria-label="Close">${ICONS.close}</button></div>
+    <div class="field"><label for="n-file">Nara export (.csv)</label><input id="n-file" type="file" accept=".csv,text/csv" /></div>
+    <div class="field"><label for="n-child">Import into</label><select id="n-child">${kids.map((k) => `<option value="${k.id}" ${k.id === state.childId ? 'selected' : ''}>${esc(k.name)}</option>`).join('')}</select></div>
+    <p class="muted small">Nara exports one child per file. Nothing is saved until you confirm.</p>
+    <div id="n-preview"></div>
+    <p class="error" id="modal-error"></p>
+    <div class="modal-actions"><div class="right">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="button" class="btn primary" id="n-go" disabled>Preview</button>
+    </div></div>`;
+  modal.showModal();
+  const fileEl = $('#n-file');
+  const childEl = $('#n-child');
+  const go = $('#n-go');
+  const out = $('#n-preview');
+  const err = $('#modal-error');
+  let csv = null;
+  let previewed = false;
+  const reset = () => { previewed = false; go.textContent = 'Preview'; out.innerHTML = ''; err.textContent = ''; go.disabled = !csv; };
+  fileEl.onchange = async () => { csv = fileEl.files[0] ? await fileEl.files[0].text() : null; reset(); };
+  childEl.onchange = reset;
+  go.onclick = async () => {
+    const childId = Number(childEl.value);
+    go.disabled = true;
+    err.textContent = '';
+    try {
+      const r = await api('POST', `/api/children/${childId}/import/nara`, { csv, commit: previewed });
+      if (r.committed) {
+        modal.close();
+        toast(`Imported ${r.imported} entries`);
+        state.childId = childId;
+        store.set('bt_child', childId);
+        await refresh();
+        return;
+      }
+      const skipped = Object.entries(r.skipped).map(([t, n]) => `${esc(t)} (${n})`).join(', ');
+      out.innerHTML = `<div class="card" style="margin-bottom:12px">
+        <h3>${r.toImport ? `Ready to import ${r.toImport.toLocaleString()} entries` : 'Nothing new to import'}</h3>
+        ${r.first ? `<p class="muted small">${fmtDate(r.first)} – ${fmtDate(r.last)}</p>` : ''}
+        <ul class="list-plain small">
+          <li><span>Sleep</span><strong>${r.counts.sleep}</strong></li>
+          <li><span>Feeds</span><strong>${r.counts.feed}</strong></li>
+          <li><span>Diapers</span><strong>${r.counts.diaper}</strong></li>
+          <li><span>Growth</span><strong>${r.counts.growth}</strong></li>
+          ${r.duplicates ? `<li><span>Already imported (skipped)</span><strong>${r.duplicates}</strong></li>` : ''}
+        </ul>
+        ${skipped ? `<p class="muted small">Not supported yet, left out: ${skipped}</p>` : ''}
+        ${r.problemCount ? `<details><summary class="small">${r.problemCount} row(s) couldn't be read and will be left out</summary>
+          <ul class="small">${r.problems.map((p) => `<li>${p.line ? `Line ${p.line} ` : ''}${esc(p.type)}: ${esc(p.reason)}</li>`).join('')}</ul></details>` : ''}
+      </div>`;
+      previewed = true;
+      go.textContent = `Import ${r.toImport.toLocaleString()}`;
+      go.disabled = !r.toImport;
+    } catch (e) {
+      err.textContent = e.message;
+      go.disabled = false;
+    }
+  };
+}
+
 function findEvent(id) {
   return [...state.recent, ...state.logEvents, ...state.growth].find((e) => e.id === id);
 }
@@ -752,6 +823,8 @@ app.addEventListener('click', async (ev) => {
       await api('PATCH', `/api/events/${t.dataset.id}`, { endAt: new Date().toISOString() });
       toast('Sleep saved');
       await refresh();
+    } else if (t.dataset.action === 'import-nara') {
+      naraModal();
     } else if (t.dataset.action === 'add-child') {
       childModal();
     } else if (t.dataset.action === 'invite') {
@@ -781,7 +854,12 @@ modalForm.addEventListener('click', async (ev) => {
 });
 
 app.addEventListener('change', async (ev) => {
-  if (ev.target.id === 'child-select') {
+  if (ev.target.id === 'log-date' && ev.target.value) {
+    const [y, m, d] = ev.target.value.split('-').map(Number);
+    state.logDay = new Date(y, m - 1, d);
+    await loadTabData();
+    render();
+  } else if (ev.target.id === 'child-select') {
     state.childId = Number(ev.target.value);
     store.set('bt_child', state.childId);
     await refresh();

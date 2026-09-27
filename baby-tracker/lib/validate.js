@@ -80,11 +80,21 @@ export function validateEvent(input) {
         method,
         amountMl: num(raw.amountMl, 'amountMl', { min: 0, max: 1000, optional: false }),
         contents: oneOf(raw.contents ?? 'formula', 'contents', ['breast_milk', 'formula', 'mixed']),
+        breastMilkMl: num(raw.breastMilkMl, 'breastMilkMl', { min: 0, max: 1000 }),
+        formulaMl: num(raw.formulaMl, 'formulaMl', { min: 0, max: 1000 }),
+        formulaName: text(raw.formulaName, 'formulaName', { max: 80, optional: true }),
         note,
       });
     }
   } else if (type === 'diaper') {
-    data = clean({ kind: oneOf(raw.kind, 'kind', ['wet', 'dirty', 'both']), note });
+    data = clean({
+      kind: oneOf(raw.kind, 'kind', ['wet', 'dirty', 'both', 'dry']),
+      color: text(raw.color, 'color', { max: 80, optional: true }),
+      texture: text(raw.texture, 'texture', { max: 80, optional: true }),
+      blowout: raw.blowout === true || undefined,
+      rash: raw.rash === true || undefined,
+      note,
+    });
     endAt = null;
   } else {
     data = clean({

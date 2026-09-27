@@ -160,6 +160,7 @@ h3 { font-size: .95rem; }
 .empty { color: var(--muted); text-align: center; padding: 24px 8px; }
 
 .day-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#log-date { border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px; padding: 4px 8px; margin: 4px 0; font-size: .85rem; }
 
 /* Segmented control */
 .seg { display: flex; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 3px; }
@@ -179,7 +180,7 @@ h3 { font-size: .95rem; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .error { color: var(--danger); font-size: .9rem; min-height: 1.2em; margin: 0 0 8px; }
 
-.choice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.choice { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
 .choice button {
   border: 2px solid var(--border); background: var(--surface); border-radius: 14px; padding: 16px 6px; cursor: pointer; font-weight: 600;
 }
