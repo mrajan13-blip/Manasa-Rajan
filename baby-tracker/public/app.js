@@ -381,7 +381,7 @@ function viewFamily() {
     </section>
     <section class="section card">
       <div class="section-head"><h2>Caregivers</h2><button class="btn primary" data-action="invite">Invite partner</button></div>
-      <ul class="list-plain">${members.map((m) => `<li><div><strong>${esc(m.name)}</strong>${m.id === user.id ? ' <span class="muted small">(you)</span>' : ''}<div class="muted small">${esc(m.email)}</div></div></li>`).join('')}</ul>
+      <ul class="list-plain">${members.map((m) => `<li><div><strong>${esc(m.name)}</strong>${m.id === user.id ? ' <span class="muted small">(you)</span>' : ''}<div class="muted small">${esc(m.email)}</div></div>${m.id === user.id ? '' : `<button class="btn ghost danger" data-remove-member="${m.id}" data-name="${esc(m.name)}">Remove</button>`}</li>`).join('')}</ul>
       <p class="muted small">Everyone here sees and logs for all children in real time.</p>
       <details style="margin-top:8px" ${state.invite ? 'open' : ''}><summary class="link-btn">Have an invite code?</summary>
         <form id="join-form" style="margin-top:10px">
@@ -814,6 +814,12 @@ app.addEventListener('click', async (ev) => {
     } else if (t.dataset.units) {
       state.me = await api('PATCH', '/api/me', { units: t.dataset.units });
       render();
+    } else if (t.dataset.removeMember) {
+      if (confirm(`Remove ${t.dataset.name}? They'll be signed out and lose access to all children and logs.`)) {
+        state.me = await api('DELETE', `/api/members/${t.dataset.removeMember}`);
+        toast(`${t.dataset.name} removed`);
+        render();
+      }
     } else if (t.dataset.editChild) {
       childModal(state.me.children.find((k) => k.id === Number(t.dataset.editChild)));
     } else if (t.dataset.sex) {

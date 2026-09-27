@@ -8,6 +8,8 @@ const handler = createApp({
   db,
   secureCookies: process.env.COOKIE_SECURE === '1',
   trustProxy: process.env.TRUST_PROXY === '1',
+  openSignup: process.env.OPEN_SIGNUP === '1',
+  allowedEmails: (process.env.ALLOWED_EMAILS || '').split(','),
 });
 
 createServer(handler).listen(port, () => {

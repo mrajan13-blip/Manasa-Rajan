@@ -8,7 +8,7 @@ let server;
 let base;
 
 before(async () => {
-  server = createServer(createApp({ db: openDb(':memory:') }));
+  server = createServer(createApp({ db: openDb(':memory:'), openSignup: true, authAttempts: 1000 }));
   await new Promise((resolve) => server.listen(0, resolve));
   base = `http://localhost:${server.address().port}`;
 });
@@ -204,4 +204,58 @@ test('imports a Nara export: preview, commit, and re-import skips duplicates', a
   const other = client();
   await other('POST', '/api/signup', { name: 'O', email: email(), password: 'password123' });
   assert.equal((await other('POST', url, { csv })).status, 404);
+});
+
+test('signup is invite-only by default after the first account, and honors an email allow-list', async () => {
+  const srv = createServer(createApp({ db: openDb(':memory:'), allowedEmails: ['owner@example.com', 'Partner@example.com'] }));
+  await new Promise((resolve) => srv.listen(0, resolve));
+  const url = `http://localhost:${srv.address().port}`;
+  const post = async (path, body, cookie = '') => {
+    const res = await fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body) });
+    return { status: res.status, body: await res.json(), cookie: (res.headers.get('set-cookie') || '').split(';')[0] };
+  };
+  try {
+    // Not on the allow-list: refused even as the first account.
+    assert.equal((await post('/api/signup', { name: 'X', email: 'stranger@example.com', password: 'password123' })).status, 403);
+    const owner = await post('/api/signup', { name: 'Owner', email: 'owner@example.com', password: 'password123' });
+    assert.equal(owner.status, 201);
+    // Second account without an invite: refused.
+    assert.equal((await post('/api/signup', { name: 'P', email: 'partner@example.com', password: 'password123' })).status, 403);
+    const { code } = (await post('/api/invites', {}, owner.cookie)).body;
+    // A valid invite doesn't bypass the allow-list.
+    assert.equal((await post('/api/signup', { name: 'X', email: 'stranger@example.com', password: 'password123', inviteCode: code })).status, 403);
+    const partner = await post('/api/signup', { name: 'P', email: 'partner@example.com', password: 'password123', inviteCode: code });
+    assert.equal(partner.status, 201);
+    assert.equal(partner.body.members.length, 2);
+  } finally {
+    srv.close();
+  }
+});
+
+test('removing a caregiver revokes their access immediately', async () => {
+  const mom = client();
+  const dad = client();
+  await mom('POST', '/api/signup', { name: 'Mom', email: email(), password: 'password123' });
+  const kid = (await mom('POST', '/api/children', { name: 'Kid', birthDate: '2026-01-01', sex: 'male' })).body;
+  const { code } = (await mom('POST', '/api/invites')).body;
+  const dadMe = (await dad('POST', '/api/signup', { name: 'Dad', email: email(), password: 'password123', inviteCode: code })).body;
+  assert.equal((await dad('GET', `/api/children/${kid.id}/events`)).status, 200);
+
+  const r = await mom('DELETE', `/api/members/${dadMe.user.id}`);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.members.length, 1);
+  assert.equal((await dad('GET', '/api/me')).status, 401, 'signed out everywhere');
+  assert.equal((await mom('DELETE', `/api/members/${r.body.user.id}`)).status, 400, "can't remove yourself");
+});
+
+test('rate-limits repeated sign-in attempts', async () => {
+  const srv = createServer(createApp({ db: openDb(':memory:'), authAttempts: 3 }));
+  await new Promise((resolve) => srv.listen(0, resolve));
+  const url = `http://localhost:${srv.address().port}/api/login`;
+  const attempt = () => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"email":"a@b.co","password":"x"}' }).then((r) => r.status);
+  try {
+    assert.deepEqual([await attempt(), await attempt(), await attempt(), await attempt()], [401, 401, 401, 429]);
+  } finally {
+    srv.close();
+  }
 });

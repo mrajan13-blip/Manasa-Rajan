@@ -45,8 +45,27 @@ npm test
 | `DB_PATH` | `./data/baby-tracker.db` | SQLite file (keep it on a persistent disk) |
 | `COOKIE_SECURE` | unset | Set to `1` when served over HTTPS |
 | `TRUST_PROXY` | unset | Set to `1` behind a reverse proxy so rate limiting uses `X-Forwarded-For` |
+| `ALLOWED_EMAILS` | unset | Comma-separated emails. When set, only these addresses can ever create an account |
+| `OPEN_SIGNUP` | unset | Set to `1` to let anyone sign up without an invite (not recommended) |
 
 To share it with your spouse, the app has to run somewhere you can both reach. Any Node host with a persistent disk works (Render, Fly.io, Railway, a home server). Serve it over HTTPS and set `COOKIE_SECURE=1`.
+
+## Privacy and security
+
+Only people you invite can see your data:
+
+- **Invite-only sign-up.** The first account can be created freely. After that, a new account needs a single-use invite code from an existing member (codes expire after 7 days). For a hard lock, set `ALLOWED_EMAILS=you@example.com,partner@example.com`. Then nobody else can register, even with a code.
+- **Family isolation.** Every request checks that the child or entry belongs to the signed-in user's family. Other accounts get "not found".
+- **Removing someone.** Family tab → Remove. They're signed out on every device immediately and lose access to all children and logs.
+- **Passwords** are hashed with scrypt. Sessions are random tokens stored hashed, in `HttpOnly`, `SameSite=Lax` cookies that last 90 days. Sign-in, sign-up and invite attempts are rate-limited per IP. Writes require a JSON content type, which blocks cross-site form attacks.
+
+What you need to do when hosting:
+
+1. **Serve it only over HTTPS** and set `COOKIE_SECURE=1`. Most hosts (Render, Fly.io, Railway) provide HTTPS automatically.
+2. **Create your account first**, right after deploying, then invite your partner. Or set `ALLOWED_EMAILS` before the first deploy so no one can get there first.
+3. **Protect and back up the database file** (`DB_PATH`). It holds all the data. Use the host's encrypted persistent disk and snapshot backups, and don't commit it to git (`data/` is ignored).
+
+Not built yet: password reset (if you forget your password, the only fix is editing the database), two-factor sign-in, and a "sign out other devices" button.
 
 ## Layout
 

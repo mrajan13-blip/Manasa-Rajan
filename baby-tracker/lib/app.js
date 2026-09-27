@@ -26,11 +26,17 @@ const MIME = {
 const now = () => new Date().toISOString();
 const daysFromNow = (d) => new Date(Date.now() + d * 86400000).toISOString();
 
-export function createApp({ db, secureCookies = false, trustProxy = false }) {
-  const authLimiter = createRateLimiter({ limit: 20, windowMs: 15 * 60 * 1000 });
+// Sign-up policy (secure by default):
+// - The very first account can always be created (that's you).
+// - After that, new accounts need an invite code from an existing member, unless openSignup is true.
+// - If allowedEmails is non-empty, only those addresses can ever sign up, invite or not.
+export function createApp({ db, secureCookies = false, trustProxy = false, openSignup = false, allowedEmails = [], authAttempts = 20 }) {
+  const allowList = new Set(allowedEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
+  const authLimiter = createRateLimiter({ limit: authAttempts, windowMs: 15 * 60 * 1000 });
 
   const q = {
     userByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
+    countUsers: db.prepare('SELECT COUNT(*) AS n FROM users'),
     userBySession: db.prepare(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
                                WHERE s.token_hash = ? AND s.expires_at > ?`),
     insertFamily: db.prepare('INSERT INTO families (created_at) VALUES (?)'),
@@ -195,8 +201,14 @@ export function createApp({ db, secureCookies = false, trustProxy = false }) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw bad('Enter a valid email address');
       const password = typeof body.password === 'string' ? body.password : '';
       if (password.length < 8) throw bad('Password must be at least 8 characters');
+      if (allowList.size && !allowList.has(email)) {
+        throw new HttpError(403, "This tracker is private. Ask the owner to add your email address.");
+      }
       if (q.userByEmail.get(email)) throw new HttpError(409, 'An account with that email already exists');
       const code = body.inviteCode ? String(body.inviteCode).trim().toUpperCase() : null;
+      if (!code && !openSignup && q.countUsers.get().n > 0) {
+        throw new HttpError(403, 'This tracker is invite-only. Ask your partner for an invite code (Family tab → Invite partner).');
+      }
       const invite = code ? q.invite.get(code, now()) : null;
       if (code && !invite) throw bad('That invite code is invalid or has expired');
 
@@ -243,9 +255,25 @@ export function createApp({ db, secureCookies = false, trustProxy = false }) {
       return [201, { code, expiresAt }];
     }],
 
-    ['POST', /^\/api\/invites\/accept$/, {}, ({ user, body }) => {
+    ['POST', /^\/api\/invites\/accept$/, { limited: true }, ({ user, body }) => {
       joinFamily(user, body.code);
       return [200, me(db.prepare('SELECT * FROM users WHERE id = ?').get(user.id))];
+    }],
+
+    // Remove a caregiver: they lose access immediately (moved to an empty family, all sessions ended).
+    ['DELETE', /^\/api\/members\/(\d+)$/, {}, ({ user, params }) => {
+      const id = Number(params[0]);
+      if (id === user.id) throw bad("You can't remove yourself");
+      const member = db.prepare('SELECT id FROM users WHERE id = ? AND family_id = ?').get(id, user.family_id);
+      if (!member) throw new HttpError(404, 'Caregiver not found');
+      transaction(db, () => {
+        const familyId = Number(q.insertFamily.run(now()).lastInsertRowid);
+        q.moveUser.run(familyId, id);
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+        // Their unused invites no longer grant access to this family.
+        db.prepare('DELETE FROM invites WHERE created_by = ? AND used_by IS NULL').run(id);
+      });
+      return [200, me(user)];
     }],
 
     ['POST', /^\/api\/children$/, {}, ({ user, body }) => {
