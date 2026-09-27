@@ -48,7 +48,7 @@ function toMl(value, unit) {
   if (value == null) return null;
   const u = (unit || 'ML').toUpperCase();
   if (u === 'ML') return value;
-  if (u === 'OZ' || u === 'FL OZ') return Math.round(value * OZ_TO_ML * 10) / 10;
+  if (u === 'OZ' || u === 'FLOZ' || u === 'FL OZ') return Math.round(value * OZ_TO_ML * 10) / 10;
   throw new Error(`Unknown volume unit ${unit}`);
 }
 function toKg(value, unit) {
@@ -149,10 +149,44 @@ function endFor(row, prefix, startMs) {
   return null;
 }
 
+function pump(row) {
+  const ml = (c) => toMl(num(row[`[Pump] ${c}`]), row[`[Pump] ${c} Unit`]);
+  const leftMl = ml('Left Volume');
+  const rightMl = ml('Right Volume');
+  return clean({ leftMl, rightMl, totalMl: leftMl == null && rightMl == null ? ml('Total Volume') : undefined });
+}
+
+function medical(row) {
+  const temperature = num(row['[Medical] Temperature']);
+  const data = clean({
+    medication: row['[Medical] Medication'],
+    temperature,
+    tempUnit: temperature == null ? undefined : (row['[Medical] Temperature Unit'] || 'F').toUpperCase(),
+  });
+  if (!data.medication && data.temperature == null && !row.Note) throw new Error('medical entry is empty');
+  return data;
+}
+
+function solid(row) {
+  // Foods are newline-separated; some carry Nara metadata after a colon ("Moong Dal: amountKey=SOME; ...").
+  const foods = (row['[Solid Feed] Food'] || '').split(/\n+/).map((f) => f.split(':')[0].trim()).filter(Boolean).join(', ');
+  const meal = (row['[Solid Feed] Meal'] || '').toLowerCase();
+  return clean({ foods, meal: ['breakfast', 'lunch', 'dinner', 'snack'].includes(meal) ? meal : undefined });
+}
+
 const SUPPORTED = {
   Breastfeed: 'feed', 'Bottle Feed': 'feed', 'Combo Feed': 'feed', Diaper: 'diaper', Growth: 'growth',
-  Sleep: 'sleep', Nap: 'sleep', 'Night Sleep': 'sleep',
+  Sleep: 'sleep', Nap: 'sleep', 'Night Sleep': 'sleep', Pump: 'pump', Medical: 'medical', 'Solid Feed': 'solid',
+  Milestone: 'milestone', 'Baby First': 'milestone',
 };
+
+// The child's profile row, for a sanity check against the child being imported into.
+export function naraProfile(rows) {
+  const p = rows.find((r) => r.Type === 'Profile');
+  if (!p) return null;
+  const sex = (p['[Profile] Sex'] || '').toLowerCase();
+  return { birthDate: p['[Profile] Birth Date'] || null, sex: sex === 'male' || sex === 'female' ? sex : null };
+}
 
 // Returns { events, skipped: {Type: count}, problems: [{line, type, reason}] }.
 // Each event is { type, startAt, endAt, data, sourceKey, caregiver }.
@@ -162,6 +196,7 @@ export function mapNaraRows(rows) {
   const problems = [];
   rows.forEach((row, i) => {
     const type = row.Type || '';
+    if (type === 'Profile') return; // the child's details, not an activity (see naraProfile)
     if (!SUPPORTED[type]) {
       if (type) skipped[type] = (skipped[type] || 0) + 1;
       return;
@@ -183,11 +218,23 @@ export function mapNaraRows(rows) {
         // A combo is a breastfeed and a bottle at the same sitting; this app stores them separately.
         const b = breastfeed(row, 'Combo Feed');
         push({ type: 'feed', endAt: new Date(startMs + b.seconds * 1000).toISOString(), data: b.data }, '#breast');
-        push({ type: 'feed', endAt: null, data: bottle(row, 'Combo Feed') }, '#bottle');
+        // Nara allows a combo feed with no bottle amount; keep the breastfeed half.
+        const hasVolume = ['Volume', 'Breast Milk Volume', 'Formula Volume'].some((c) => row[`[Combo Feed] ${c}`]);
+        if (hasVolume) push({ type: 'feed', endAt: null, data: bottle(row, 'Combo Feed') }, '#bottle');
       } else if (type === 'Diaper') {
         push({ type: 'diaper', endAt: null, data: diaper(row) });
       } else if (type === 'Growth') {
         push({ type: 'growth', endAt: null, data: growth(row) });
+      } else if (type === 'Pump') {
+        push({ type: 'pump', endAt: endFor(row, 'Pump', startMs), data: pump(row) });
+      } else if (type === 'Medical') {
+        push({ type: 'medical', endAt: null, data: medical(row) });
+      } else if (type === 'Solid Feed') {
+        push({ type: 'solid', endAt: null, data: solid(row) });
+      } else if (type === 'Milestone' || type === 'Baby First') {
+        const title = row[`[${type}] ${type}`];
+        if (!title) throw new Error(`${type.toLowerCase()} has no text`);
+        push({ type: 'milestone', endAt: null, data: { title, kind: type === 'Milestone' ? 'milestone' : 'first' } });
       } else {
         const endAt = endFor(row, type, startMs);
         if (!endAt) throw new Error('sleep has no end time or duration');

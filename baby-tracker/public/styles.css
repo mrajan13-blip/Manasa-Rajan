@@ -14,6 +14,10 @@
   --feed: #D9822B;
   --diaper: #2F9C8F;
   --growth: #B0569C;
+  --pump: #C0657A;
+  --medical: #C24B4B;
+  --solid: #7C9A3A;
+  --milestone: #C9A227;
   --band: rgba(62, 124, 107, 0.10);
   --curve: rgba(34, 37, 43, 0.28);
   --curve-mid: rgba(34, 37, 43, 0.55);
@@ -37,6 +41,10 @@
     --feed: #F0A860;
     --diaper: #5CC6B8;
     --growth: #DB8AC8;
+    --pump: #E891A4;
+    --medical: #EE8080;
+    --solid: #A9C766;
+    --milestone: #E6C454;
     --band: rgba(109, 187, 165, 0.12);
     --curve: rgba(236, 234, 230, 0.25);
     --curve-mid: rgba(236, 234, 230, 0.55);
@@ -129,6 +137,17 @@ h3 { font-size: .95rem; }
 .c-feed { background: var(--feed); }
 .c-diaper { background: var(--diaper); }
 .c-growth { background: var(--growth); }
+.c-pump { background: var(--pump); }
+.c-medical { background: var(--medical); }
+.c-solid { background: var(--solid); }
+.c-milestone { background: var(--milestone); }
+.more { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.more button {
+  display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface);
+  border-radius: 999px; padding: 6px 12px 6px 6px; cursor: pointer; font-size: .85rem; font-weight: 600; min-height: 36px;
+}
+.more .mini { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+.more .mini svg { width: 14px; height: 14px; }
 
 .sleep-live {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

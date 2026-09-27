@@ -4,7 +4,8 @@ A shared baby tracker for two parents (or more caregivers). It covers sleep, fee
 
 - **Sleep**: start a live timer ("Woke up" ends it), or add a past sleep with start and end times.
 - **Feeding**: breastfeeding with left/right side timers (they keep running if you close the app), or a bottle with an amount and contents (breast milk / formula / mixed).
-- **Diapers**: wet, dirty or both.
+- **Diapers**: wet, dirty, both or dry.
+- **More**: pumping, medicine / temperature, solid foods, and milestones and "baby firsts".
 - **Growth**: weight, length and head circumference plotted on the **WHO Child Growth Standards** for 0–36 months (3rd/15th/50th/85th/97th percentiles). Each measurement shows its percentile.
 - **Sharing**: in the Family tab, tap *Invite partner* and send them the code or link. They sign up with it and join your family. Everyone in a family sees and logs for the same children. The app refreshes every 20 seconds and whenever you reopen it.
 - Today dashboard (time since the last feed, diaper and sleep, plus today's totals), a day-by-day history, multiple children, lb/oz/in or kg/ml/cm, dark mode, and "Add to Home Screen" (PWA).
@@ -23,7 +24,14 @@ A shared baby tracker for two parents (or more caregivers). It covers sleep, fee
 | Diaper | Wet / dirty / both / dry, plus stool color, texture, blowout and rash |
 | Growth | Weight, length and head circumference (lb/in converted to kg/cm) |
 | Sleep | Sleep with start and end |
-| Pump, Milestone, Vaccine, etc. | Skipped for now and listed in the preview |
+| Pump | Pumping session with left/right (or total) volume and duration |
+| Medical | Medicine and dose, and/or temperature |
+| Solid Feed | Foods and meal (breakfast/lunch/dinner/snack) |
+| Milestone, Baby First | Milestone or "first" with its description |
+
+Nara volumes in fluid ounces (`FLOZ`) are converted to ml. A combo feed with no bottle amount imports as just the breastfeed.
+
+Before importing, the preview warns if Nara's birth date or sex doesn't match the child you picked. It also shows which family member each Nara caregiver will be credited to. Names match on full name, or on first name ("Stephen Bapana" matches an account named "Stephen"). **Have your partner join before importing** so their entries are credited to them.
 
 Each entry keeps Nara's activity id. Importing the same file again, or a newer export, only adds what's new. Entries are credited to the family member whose name matches Nara's "Created By Caregiver", or otherwise to whoever ran the import.
 

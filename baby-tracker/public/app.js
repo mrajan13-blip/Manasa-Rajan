@@ -44,6 +44,10 @@ const ICONS = {
   feed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2h4M9 5h6l-1 3H10z"/><path d="M8 8h8v11a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3z"/><path d="M8 13h3M8 17h3"/></svg>',
   diaper: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v4a9 9 0 0 1-18 0z"/><path d="M7 10a5 5 0 0 0 10 0"/></svg>',
   growth: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 7v4M10 7v3M14 7v4M18 7v3"/></svg>',
+  pump: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-3 4-6 7-6 11a6 6 0 0 0 12 0c0-4-3-7-6-11z"/></svg>',
+  medical: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+  solid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M8 7c0-2 2-2 2-4M13 7c0-2 2-2 2-4"/></svg>',
+  milestone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
   today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
   log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
   chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>',
@@ -103,6 +107,10 @@ function fmtWeight(kg) {
   let oz = Math.round((totalOz - lb * 16) * 10) / 10;
   if (oz >= 16) { lb += 1; oz = 0; }
   return `${lb} lb ${oz} oz`;
+}
+function fmtTemp(value, unit) {
+  const f = unit === 'C' ? value * 9 / 5 + 32 : value;
+  return imperial() ? `${f.toFixed(1)}°F` : `${((f - 32) * 5 / 9).toFixed(1)}°C`;
 }
 function fmtLength(cm) {
   return imperial() ? `${+(cm / CM_PER_IN).toFixed(1)} in` : `${+cm.toFixed(1)} cm`;
@@ -186,6 +194,22 @@ function describe(e) {
   if (e.type === 'diaper') {
     const extra = [d.color, d.texture, d.blowout && 'blowout', d.rash && 'rash'].filter(Boolean).join(' · ');
     return { title: { wet: 'Wet diaper', dirty: 'Dirty diaper', both: 'Wet + dirty diaper', dry: 'Dry diaper' }[d.kind], meta: extra };
+  }
+  if (e.type === 'pump') {
+    const total = d.totalMl ?? ((d.leftMl || 0) + (d.rightMl || 0));
+    const sides = [d.leftMl != null && `L ${fmtVolume(d.leftMl)}`, d.rightMl != null && `R ${fmtVolume(d.rightMl)}`].filter(Boolean).join(' · ');
+    const dur = e.endAt && new Date(e.endAt) > new Date(e.startAt) ? fmtDuration(new Date(e.endAt) - new Date(e.startAt)) : '';
+    return { title: `Pumped${total ? ` · ${fmtVolume(total)}` : ''}`, meta: [sides, dur].filter(Boolean).join(' — ') };
+  }
+  if (e.type === 'medical') {
+    const temp = d.temperature != null ? fmtTemp(d.temperature, d.tempUnit) : '';
+    return { title: d.medication ? d.medication : temp ? `Temperature ${temp}` : 'Health note', meta: d.medication && temp ? `Temperature ${temp}` : '' };
+  }
+  if (e.type === 'solid') {
+    return { title: d.foods ? `Ate ${d.foods}` : 'Solid food', meta: d.meal ? d.meal[0].toUpperCase() + d.meal.slice(1) : '' };
+  }
+  if (e.type === 'milestone') {
+    return { title: d.title, meta: d.kind === 'first' ? 'Baby first' : 'Milestone' };
   }
   const parts = [];
   if (d.weightKg) parts.push(fmtWeight(d.weightKg));
@@ -276,6 +300,12 @@ function viewToday() {
       <button data-quick="feed"><span class="dot c-feed">${ICONS.feed}</span>Feed</button>
       <button data-quick="diaper"><span class="dot c-diaper">${ICONS.diaper}</span>Diaper</button>
       <button data-quick="growth"><span class="dot c-growth">${ICONS.growth}</span>Growth</button>
+    </section>
+    <section class="more" aria-label="Log more">
+      <button data-quick="pump"><span class="mini c-pump">${ICONS.pump}</span>Pump</button>
+      <button data-quick="medical"><span class="mini c-medical">${ICONS.medical}</span>Medicine / temp</button>
+      <button data-quick="solid"><span class="mini c-solid">${ICONS.solid}</span>Solids</button>
+      <button data-quick="milestone"><span class="mini c-milestone">${ICONS.milestone}</span>Milestone</button>
     </section>
     <section class="section">
       <div class="section-head"><h2>Since last</h2></div>
@@ -683,6 +713,90 @@ function growthModal(e) {
   { onDelete: e && deleteEvent(e) });
 }
 
+function volumeInput(name, label, ml) {
+  const v = ml == null ? '' : imperial() ? +(ml / ML_PER_OZ).toFixed(2) : Math.round(ml * 10) / 10;
+  return `<div class="field"><label for="m-${name}">${label} (${imperial() ? 'oz' : 'ml'})</label><input id="m-${name}" name="${name}" type="number" inputmode="decimal" min="0" step="any" value="${v}" /></div>`;
+}
+const volumeFrom = (fd, name) => {
+  const v = fd.get(name);
+  if (v === '' || v == null) return null;
+  return Math.round((imperial() ? Number(v) * ML_PER_OZ : Number(v)) * 10) / 10;
+};
+
+function pumpModal(e) {
+  const d = e?.data || {};
+  const mins = e?.endAt ? Math.round((new Date(e.endAt) - new Date(e.startAt)) / 60000) : '';
+  openModal(e ? 'Edit pumping' : 'Pumping', `
+    <div class="row2">
+      <div class="field"><label for="m-start">Started</label><input id="m-start" name="start" type="datetime-local" value="${toLocalInput(e?.startAt)}" required /></div>
+      <div class="field"><label for="m-mins">Minutes</label><input id="m-mins" name="mins" type="number" inputmode="numeric" min="0" step="1" value="${mins}" /></div>
+    </div>
+    <div class="row2">${volumeInput('left', 'Left', d.leftMl)}${volumeInput('right', 'Right', d.rightMl)}</div>
+    ${d.totalMl != null ? volumeInput('total', 'Total', d.totalMl) : ''}
+    ${noteField(e)}`,
+  (fd) => {
+    const startAt = fromLocalInput(fd.get('start'));
+    const mins = Number(fd.get('mins') || 0);
+    const endAt = mins ? new Date(new Date(startAt).getTime() + mins * 60000).toISOString() : null;
+    return saveEvent(e, { type: 'pump', startAt, endAt, data: { leftMl: volumeFrom(fd, 'left'), rightMl: volumeFrom(fd, 'right'), totalMl: volumeFrom(fd, 'total'), note: fd.get('note') } });
+  },
+  { onDelete: e && deleteEvent(e) });
+}
+
+function medicalModal(e) {
+  const d = e?.data || {};
+  const unit = imperial() ? 'F' : 'C';
+  let temp = '';
+  if (d.temperature != null) {
+    const f = d.tempUnit === 'C' ? d.temperature * 9 / 5 + 32 : d.temperature;
+    temp = unit === 'F' ? +f.toFixed(1) : +((f - 32) * 5 / 9).toFixed(1);
+  }
+  openModal(e ? 'Edit medicine / temperature' : 'Medicine / temperature', `
+    <div class="field"><label for="m-start">Time</label><input id="m-start" name="start" type="datetime-local" value="${toLocalInput(e?.startAt)}" required /></div>
+    <div class="field"><label for="m-med">Medicine and dose</label><input id="m-med" name="medication" maxlength="200" placeholder="e.g. Children's Tylenol, 3.75 ml" value="${esc(d.medication || '')}" /></div>
+    <div class="field"><label for="m-temp">Temperature (°${unit})</label><input id="m-temp" name="temperature" type="number" inputmode="decimal" step="0.1" value="${temp}" /></div>
+    ${noteField(e)}`,
+  (fd) => saveEvent(e, { type: 'medical', startAt: fromLocalInput(fd.get('start')), data: {
+    medication: fd.get('medication'), temperature: fd.get('temperature') === '' ? null : Number(fd.get('temperature')),
+    tempUnit: fd.get('temperature') === '' ? null : unit, note: fd.get('note'),
+  } }),
+  { onDelete: e && deleteEvent(e) });
+}
+
+function solidModal(e) {
+  const d = e?.data || {};
+  openModal(e ? 'Edit solid food' : 'Solid food', `
+    <input type="hidden" name="meal" value="${d.meal || ''}" />
+    <div class="seg" role="group" aria-label="Meal" style="margin-bottom:14px">
+      ${['breakfast', 'lunch', 'dinner', 'snack'].map((m) => `<button type="button" data-pick="meal:${m}" aria-pressed="${d.meal === m}">${m[0].toUpperCase() + m.slice(1)}</button>`).join('')}
+    </div>
+    <div class="field"><label for="m-foods">Foods</label><input id="m-foods" name="foods" maxlength="500" placeholder="e.g. Avocado, oatmeal" value="${esc(d.foods || '')}" /></div>
+    <div class="field"><label for="m-start">Time</label><input id="m-start" name="start" type="datetime-local" value="${toLocalInput(e?.startAt)}" required /></div>
+    ${noteField(e)}`,
+  (fd) => saveEvent(e, { type: 'solid', startAt: fromLocalInput(fd.get('start')), data: { foods: fd.get('foods'), meal: fd.get('meal') || null, note: fd.get('note') } }),
+  { onDelete: e && deleteEvent(e) });
+}
+
+function milestoneModal(e) {
+  const d = e?.data || {};
+  const kind = d.kind || 'first';
+  openModal(e ? 'Edit milestone' : 'Milestone', `
+    <input type="hidden" name="kind" value="${kind}" />
+    <div class="seg" role="group" aria-label="Kind" style="margin-bottom:14px">
+      <button type="button" data-pick="kind:first" aria-pressed="${kind === 'first'}">Baby first</button>
+      <button type="button" data-pick="kind:milestone" aria-pressed="${kind === 'milestone'}">Milestone</button>
+    </div>
+    <div class="field"><label for="m-title">What happened?</label><input id="m-title" name="title" maxlength="300" placeholder="e.g. First steps!" value="${esc(d.title || '')}" required /></div>
+    <div class="field"><label for="m-date">Date</label><input id="m-date" name="date" type="date" value="${toLocalDate(e?.startAt)}" max="${toLocalDate()}" required /></div>
+    ${noteField(e)}`,
+  (fd) => {
+    const keepTime = e && toLocalDate(e.startAt) === fd.get('date');
+    const startAt = keepTime ? e.startAt : new Date(`${fd.get('date')}T12:00`).toISOString();
+    return saveEvent(e, { type: 'milestone', startAt, data: { title: fd.get('title'), kind: fd.get('kind'), note: fd.get('note') } });
+  },
+  { onDelete: e && deleteEvent(e) });
+}
+
 function childModal(k) {
   openModal(k ? `Edit ${k.name}` : 'Add child', childFields(k || {}),
     async (fd) => {
@@ -756,7 +870,9 @@ function naraModal() {
         return;
       }
       const skipped = Object.entries(r.skipped).map(([t, n]) => `${esc(t)} (${n})`).join(', ');
-      out.innerHTML = `<div class="card" style="margin-bottom:12px">
+      const warn = r.warnings.map((w) => `<p class="error">${esc(w)}</p>`).join('');
+      const people = r.caregivers.map((c) => `<li><span>${esc(c.name)}</span><span class="muted">${c.matched ? `→ ${esc(c.matched)}` : '→ you (no matching family member)'}</span></li>`).join('');
+      out.innerHTML = `${warn}<div class="card" style="margin-bottom:12px">
         <h3>${r.toImport ? `Ready to import ${r.toImport.toLocaleString()} entries` : 'Nothing new to import'}</h3>
         ${r.first ? `<p class="muted small">${fmtDate(r.first)} – ${fmtDate(r.last)}</p>` : ''}
         <ul class="list-plain small">
@@ -764,8 +880,13 @@ function naraModal() {
           <li><span>Feeds</span><strong>${r.counts.feed}</strong></li>
           <li><span>Diapers</span><strong>${r.counts.diaper}</strong></li>
           <li><span>Growth</span><strong>${r.counts.growth}</strong></li>
+          <li><span>Pumping</span><strong>${r.counts.pump}</strong></li>
+          <li><span>Medicine / temperature</span><strong>${r.counts.medical}</strong></li>
+          <li><span>Solid foods</span><strong>${r.counts.solid}</strong></li>
+          <li><span>Milestones &amp; firsts</span><strong>${r.counts.milestone}</strong></li>
           ${r.duplicates ? `<li><span>Already imported (skipped)</span><strong>${r.duplicates}</strong></li>` : ''}
         </ul>
+        ${people ? `<p class="muted small" style="margin:12px 0 0">Logged by</p><ul class="list-plain small">${people}</ul>` : ''}
         ${skipped ? `<p class="muted small">Not supported yet, left out: ${skipped}</p>` : ''}
         ${r.problemCount ? `<details><summary class="small">${r.problemCount} row(s) couldn't be read and will be left out</summary>
           <ul class="small">${r.problems.map((p) => `<li>${p.line ? `Line ${p.line} ` : ''}${esc(p.type)}: ${esc(p.reason)}</li>`).join('')}</ul></details>` : ''}
@@ -784,7 +905,7 @@ function findEvent(id) {
   return [...state.recent, ...state.logEvents, ...state.growth].find((e) => e.id === id);
 }
 function editEvent(e) {
-  ({ sleep: sleepModal, feed: feedModal, diaper: diaperModal, growth: growthModal })[e.type](e);
+  ({ sleep: sleepModal, feed: feedModal, diaper: diaperModal, growth: growthModal, pump: pumpModal, medical: medicalModal, solid: solidModal, milestone: milestoneModal })[e.type](e);
 }
 
 // ---------- event wiring ----------
@@ -799,7 +920,7 @@ app.addEventListener('click', async (ev) => {
       render();
       window.scrollTo(0, 0);
     } else if (t.dataset.quick) {
-      ({ sleep: () => sleepModal(), feed: () => feedModal(), diaper: () => diaperModal(), growth: () => growthModal() })[t.dataset.quick]();
+      ({ sleep: sleepModal, feed: feedModal, diaper: diaperModal, growth: growthModal, pump: pumpModal, medical: medicalModal, solid: solidModal, milestone: milestoneModal })[t.dataset.quick]();
     } else if (t.dataset.edit) {
       const e = findEvent(Number(t.dataset.edit));
       if (e) editEvent(e);

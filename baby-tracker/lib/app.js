@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { join, normalize, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { transaction } from './db.js';
+import { transaction, EVENT_TYPES } from './db.js';
 import {
   hashPassword, verifyPassword, newToken, hashToken, newInviteCode, parseCookies, createRateLimiter,
 } from './auth.js';
 import { HttpError, bad, text, isoDate, isoTime, validateEvent } from './validate.js';
-import { parseCsv, mapNaraRows } from './nara.js';
+import { parseCsv, mapNaraRows, naraProfile } from './nara.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const SESSION_COOKIE = 'bt_session';
@@ -87,9 +87,18 @@ export function createApp({ db, secureCookies = false, trustProxy = false, openS
       throw bad("This doesn't look like a Nara Baby export (expected Type and Start Date/time (Epoch) columns)");
     }
     const { events, skipped, problems } = mapNaraRows(rows);
-    const members = new Map(q.members.all(user.family_id).map((m) => [m.name.trim().toLowerCase(), m.id]));
+    const familyMembers = q.members.all(user.family_id);
+    const members = new Map(familyMembers.map((m) => [m.name.trim().toLowerCase(), m.id]));
+    // Nara names are often "First Last" while accounts here may be just "First" (or vice versa).
+    const firstName = (n) => String(n || '').trim().toLowerCase().split(/\s+/)[0];
+    const byFirst = new Map();
+    for (const m of familyMembers) {
+      const f = firstName(m.name);
+      byFirst.set(f, byFirst.has(f) ? null : m.id); // ambiguous first names don't match
+    }
+    const caregiverId = (name) => members.get(String(name || '').trim().toLowerCase()) ?? byFirst.get(firstName(name)) ?? null;
     const existing = new Set(q.sourceKeys.all(child.id).map((r) => r.source_key));
-    const counts = { sleep: 0, feed: 0, diaper: 0, growth: 0 };
+    const counts = Object.fromEntries(EVENT_TYPES.map((t) => [t, 0]));
     const valid = [];
     let duplicates = 0;
     let first = null;
@@ -108,7 +117,7 @@ export function createApp({ db, secureCookies = false, trustProxy = false, openS
       if (!first || ev.startAt < first) first = ev.startAt;
       if (!last || ev.startAt > last) last = ev.startAt;
       // Credit the caregiver named in Nara when they're in this family, else the importer.
-      const by = members.get(String(e.caregiver || '').trim().toLowerCase()) ?? user.id;
+      const by = caregiverId(e.caregiver) ?? user.id;
       valid.push([ev, by, e.sourceKey]);
     }
     let imported = 0;
@@ -120,7 +129,18 @@ export function createApp({ db, secureCookies = false, trustProxy = false, openS
         }
       });
     }
+    const profile = naraProfile(rows);
+    const warnings = [];
+    if (profile?.birthDate && profile.birthDate !== child.birth_date) {
+      warnings.push(`Nara's birth date is ${profile.birthDate}, but ${child.name}'s is ${child.birth_date}. Is this the right child?`);
+    }
+    if (profile?.sex && profile.sex !== child.sex) {
+      warnings.push(`Nara lists this child as ${profile.sex}, but ${child.name} is set to ${child.sex}.`);
+    }
+    const caregivers = [...new Set(events.map((e) => e.caregiver).filter(Boolean))]
+      .map((name) => ({ name, matched: familyMembers.find((m) => m.id === caregiverId(name))?.name ?? null }));
     return {
+      warnings, caregivers,
       committed: !!commit, imported, toImport: valid.length, counts, duplicates, skipped,
       problems: problems.slice(0, 50), problemCount: problems.length, first, last,
     };

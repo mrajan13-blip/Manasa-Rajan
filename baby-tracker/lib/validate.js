@@ -1,3 +1,5 @@
+import { EVENT_TYPES } from './db.js';
+
 export class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -56,7 +58,7 @@ const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => 
 // Validates and normalizes an event payload. Returns { type, startAt, endAt, data }.
 export function validateEvent(input) {
   if (!input || typeof input !== 'object') throw bad('Invalid event');
-  const type = oneOf(input.type, 'type', ['sleep', 'feed', 'diaper', 'growth']);
+  const type = oneOf(input.type, 'type', EVENT_TYPES);
   const startAt = isoTime(input.startAt, 'startAt');
   let endAt = isoTime(input.endAt, 'endAt', { optional: true });
   const raw = input.data && typeof input.data === 'object' ? input.data : {};
@@ -93,6 +95,38 @@ export function validateEvent(input) {
       texture: text(raw.texture, 'texture', { max: 80, optional: true }),
       blowout: raw.blowout === true || undefined,
       rash: raw.rash === true || undefined,
+      note,
+    });
+    endAt = null;
+  } else if (type === 'pump') {
+    data = clean({
+      leftMl: num(raw.leftMl, 'leftMl', { min: 0, max: 1000 }),
+      rightMl: num(raw.rightMl, 'rightMl', { min: 0, max: 1000 }),
+      totalMl: num(raw.totalMl, 'totalMl', { min: 0, max: 2000 }),
+      note,
+    });
+  } else if (type === 'medical') {
+    const tempUnit = raw.temperature == null || raw.temperature === '' ? undefined : oneOf(raw.tempUnit, 'tempUnit', ['F', 'C']);
+    data = clean({
+      medication: text(raw.medication, 'medication', { max: 200, optional: true }),
+      temperature: tempUnit && num(raw.temperature, 'temperature', tempUnit === 'F' ? { min: 85, max: 110 } : { min: 29, max: 44 }),
+      tempUnit,
+      note,
+    });
+    if (!data.medication && data.temperature == null && !data.note) throw bad('Enter a medicine or a temperature');
+    endAt = null;
+  } else if (type === 'solid') {
+    data = clean({
+      foods: text(raw.foods, 'foods', { max: 500, optional: true }),
+      meal: raw.meal == null || raw.meal === '' ? undefined : oneOf(raw.meal, 'meal', ['breakfast', 'lunch', 'dinner', 'snack']),
+      note,
+    });
+    if (!data.foods && !data.meal && !data.note) throw bad('Enter what was eaten');
+    endAt = null;
+  } else if (type === 'milestone') {
+    data = clean({
+      title: text(raw.title, 'title', { max: 300 }),
+      kind: oneOf(raw.kind ?? 'first', 'kind', ['first', 'milestone']),
       note,
     });
     endAt = null;
