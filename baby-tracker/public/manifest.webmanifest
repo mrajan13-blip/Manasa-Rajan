@@ -1,0 +1,9 @@
+{
+  "name": "Baby Tracker",
+  "short_name": "Baby",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F3EE",
+  "theme_color": "#3E7C6B",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
